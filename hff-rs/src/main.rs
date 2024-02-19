@@ -1,42 +1,34 @@
-use std::env;
-use reqwest::header::HeaderMap;
+use std::io::{self, BufRead};
 use serde_json; // Add import statement for serde_json crate
 
 use crate::hff::friendly;
 mod hff;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = env::args().collect();
+fn main() {
     
-    // Ensure there's a URL argument
-    if args.len() < 2 {
-        eprintln!("Usage: {} <URL>", args[0]);
-        std::process::exit(1);
+    let stdin = io::stdin();
+    let mut handle = stdin.lock();
+
+    let mut buffer = String::new();
+    loop {
+        match handle.read_line(&mut buffer) {
+            Ok(0) => break, // End of stream
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Error reading from stdin: {}", e);
+                break; // Stop on error
+            }
+        }
     }
 
-    let url = &args[1];
-    let token = match env::var("AUTH_TOKEN") {
-        Ok(val) => val,
-        Err(_) => {
-            eprintln!("AUTH_TOKEN environment variable not found.");
-            std::process::exit(1);
+    println!("{}", buffer);
+
+    match serde_json::from_str(&buffer) {
+        Ok(response) => {
+            println!("{}", friendly(response).unwrap());
         }
-    };
-
-    let mut headers = HeaderMap::new();
-    headers.insert("Authorization", format!("Bearer {}", token).parse().unwrap());
-
-    let client = reqwest::Client::new();
-    let response = client
-        .get(url)
-        .headers(headers)
-        .send()
-        .await?
-        .json::<serde_json::Value>()
-        .await?;
-
-    println!("{}", friendly(response)?);
-
-    Ok(())
+        Err(e) => {
+            eprintln!("Error parsing JSON: {}", e);
+        }
+    }
 }

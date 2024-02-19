@@ -111,21 +111,36 @@ fn hf_summarize(_obj: &serde_json::Map<String, serde_json::Value>, _key: &str) -
         return hf_name(_obj);
     }
 
-    // generic case
-    let tags = [
-        "system", "value", "unit", "code", "version", "display", 
-        "url", "valueInstant", "valueString", "valueBoolean", "valueCode"
-    ];
-    let summary = tags.iter()        
-        .filter_map(|&tag| match _obj.get(tag) { 
-            Some(v) => Some(v.as_str().unwrap().to_string()),
-            None => None
-         })
-         .collect::<Vec<String>>()
-         .join(" | ");
+    if !(_obj.iter().any(|(_, v)| v.is_object())) {
+        // generic case
+        // this is just a quick and dirty way to summarize the object
+        // as it omits tags that are not explicitly listed
+        let tags = [
+            "system", "value", "unit", "code", "version", "display", 
+            "url", "valueInstant", "valueString", "valueBoolean", "valueCode"
+        ];
 
-    if !summary.is_empty() {
-        return Ok(json!(summary));
+        // prioritized tags
+        let mut prim_tags = tags.iter()        
+            .filter_map(|&tag| match _obj.get(tag) { 
+                Some(v) => Some(v.as_str().unwrap().to_string()),
+                None => None
+            })
+            .collect::<Vec<String>>();
+
+        // left-over tags
+        let sec_tags = _obj.keys()
+            .filter(|&k| !tags.contains(&k.as_str()))
+            .map(|k| k.to_string())
+            .collect::<Vec<String>>();
+
+        // concatenate tags    
+        prim_tags.extend(sec_tags);
+        let summary = prim_tags.join(" | ");
+
+        if !summary.is_empty() {
+            return Ok(json!(summary));
+        }
     }
 
     let reformatted_obj: serde_json::Map<std::string::String, serde_json::Value> = _obj
