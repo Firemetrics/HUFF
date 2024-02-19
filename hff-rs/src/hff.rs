@@ -1,7 +1,6 @@
 use serde_json;
 use serde_json::json;
 use serde_yaml;
-use wasm_bindgen::prelude::*;
 
 fn reformat_fhir(v: &serde_json::Value, k: Option<&str>) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
     match k {
@@ -144,27 +143,4 @@ fn to_yaml(obj: &serde_json::Value) -> Result<String, serde_yaml::Error> {
 pub fn friendly(fhir_obj: serde_json::Value) -> Result<String, Box<dyn std::error::Error>> {
     let reformatted_obj = reformat_fhir(&fhir_obj, None)?;
     Ok(to_yaml(&reformatted_obj)?)
-}
-
-/** 
- * To be called from JavaScript. Input should be a JSON-FHIR string.
- * Result is a JSON string with a "success" boolean and a "yaml" or "error" string.
- */
-#[wasm_bindgen]
-pub fn friendly_js(fhir_str: &str) -> String {
-    match serde_json::from_str(fhir_str) {
-        Ok(fhir_obj) => {
-            match friendly(fhir_obj) {
-                Ok(friendly_yaml) => {
-                    return json!({ "success": true, "yaml": friendly_yaml }).to_string()
-                }
-                Err(e) => {
-                    return json!({ "success": false, "error": e.to_string() }).to_string()
-                }
-            }
-        }
-        Err(e) => {
-            return json!({ "success": false, "error": e.to_string() }).to_string()
-        }
-    }
 }
