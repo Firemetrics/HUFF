@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>HUFF Extension Configuration</title>  
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                padding: 20px;
+            }
+            textarea {
+                width: 100%;
+            }
+            #makeReferencesClickable {
+                margin-bottom: 20px;
+            }
+            #handleContentTypes {
+                font-size: 10pt;
+                width: 300px;
+                height: 50px;
+                margin-bottom: 10px;
+            }
+            #customCssStyles {
+                font-size: 8pt;
+                width: 300px;
+                height: 200px;
+            }
+
+            #status {
+                margin-top: 10px;
+            }  
+        </style>
+    </head>
+    <body>
+        <form id="configForm">
+            <label><input type="checkbox" id="highlightHuff" /> Highlight HUFF</label><br />
+            <label><input type="checkbox" id="makeLinksClickable" /> Make links clickable</label><br />
+            <label><input type="checkbox" id="makeReferencesClickable" /> Make references clickable</label><br />
+            <label for="handleContentTypes">Handle content types (line by line):</label><br />
+            <textarea id="handleContentTypes" rows="4"></textarea><br />
+            <label for="customCssStyles">Custom CSS styles:</label><br />
+            <textarea id="customCssStyles" rows="10"></textarea><br />
+            <div id="status"></div>
+            <button id="save">Save</button> 
+        </form>
+    </body>
+    <script src="options.js" type="module"></script>
+</html>

@@ -1,0 +1,21 @@
+body {
+    background-color: #333333;
+}
+pre {
+    padding: 10px;
+}
+.language-yaml a {
+    color: #438ba1;
+}
+span.hljs-attr {
+    color: #a1a143;
+}
+span.hljs-string {
+    color: #dd8888;
+}
+span.hljs-number {
+    color: #a96ba9;
+}
+span.hljs-literal {
+    color: #cebece;
+}
