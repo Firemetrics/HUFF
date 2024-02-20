@@ -2,6 +2,19 @@ use serde_json;
 use serde_json::json;
 use serde_yaml;
 
+fn joined_arr(o: &serde_json::Map<String, serde_json::Value>, k: &str) -> Option<serde_json::Value> {
+    if let Some(_val) = o.get(k) {
+        if let Some(_val_arr) = _val.as_array() {
+            return Some(json!(_val_arr.iter().filter_map(|opt| opt.as_str()).collect::<Vec<&str>>().join(" ")));
+        }
+    }
+    return None
+}
+
+fn contains_objects_or_arrays(_obj: &serde_json::Map<String, serde_json::Value>) -> bool {
+    _obj.iter().any(|(_, v)| v.is_object() || v.is_array())
+}
+
 fn reformat_fhir(v: &serde_json::Value, k: Option<&str>) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
     match k {
         None => {
@@ -62,15 +75,6 @@ fn hf_telecom(obj: &serde_json::Map<String, serde_json::Value>) -> Result<serde_
     reformat_fhir(&json!(obj), None).map_err(|e| e.into())
 }
 
-fn joined_arr(o: &serde_json::Map<String, serde_json::Value>, k: &str) -> Option<serde_json::Value> {
-    if let Some(_val) = o.get(k) {
-        if let Some(_val_arr) = _val.as_array() {
-            return Some(json!(_val_arr.iter().filter_map(|opt| opt.as_str()).collect::<Vec<&str>>().join(" ")));
-        }
-    }
-    return None
-}
-
 fn hf_name(obj: &serde_json::Map<String, serde_json::Value>) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
 
     if let Some(text) = obj.get("text") {
@@ -111,10 +115,11 @@ fn hf_summarize(_obj: &serde_json::Map<String, serde_json::Value>, _key: &str) -
         return hf_name(_obj);
     }
 
-    if !(_obj.iter().any(|(_, v)| v.is_object())) {
+    // check if any members are objects
+    if !contains_objects_or_arrays(_obj) {
+
         // generic case
         // this is just a quick and dirty way to summarize the object
-        // as it omits tags that are not explicitly listed
         let tags = [
             "system", "value", "unit", "code", "version", "display", 
             "url", "valueInstant", "valueString", "valueBoolean", "valueCode"
@@ -158,4 +163,169 @@ fn to_yaml(obj: &serde_json::Value) -> Result<String, serde_yaml::Error> {
 pub fn friendly(fhir_obj: serde_json::Value) -> Result<String, Box<dyn std::error::Error>> {
     let reformatted_obj = reformat_fhir(&fhir_obj, None)?;
     Ok(to_yaml(&reformatted_obj)?)
+}
+
+#[cfg(test)]
+mod tests {
+    // importing names from outer (for mod tests) scope.
+    use super::*;
+
+    #[test]
+    fn test_contains_objects_or_arrays_1() {
+
+        let json_string = r#"{
+            "use": "usual",
+            "type": {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                        "code": "MR"
+                    }
+                ]
+            },
+            "system": "urn:oid:"
+        }"#;
+
+        match serde_json::from_str::<serde_json::Value>(json_string) {
+            Ok(response) => {
+                if let Some(_obj) = response.as_object() {
+                    assert!(contains_objects_or_arrays(_obj));
+                }
+                else {
+                    assert!(false);
+                }
+            }
+            Err(e) => {
+                eprintln!("Error parsing JSON: {}", e);
+                assert!(false);
+            }
+        }
+    }
+
+    #[test]
+    fn test_contains_objects_or_arrays_2() {
+
+        let json_string = r#"{
+            "use": "usual",
+            "coding": [
+                {
+                    "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                    "code": "MR"
+                }
+            ],
+            "system": "urn:oid:"
+        }"#;
+
+        match serde_json::from_str::<serde_json::Value>(json_string) {
+            Ok(response) => {
+                if let Some(_obj) = response.as_object() {
+                    assert!(contains_objects_or_arrays(_obj));
+                }
+                else {
+                    assert!(false);
+                }
+            }
+            Err(e) => {
+                eprintln!("Error parsing JSON: {}", e);
+                assert!(false);
+            }
+        }
+    }
+
+    #[test]
+    fn test_contains_objects_or_arrays_3() {
+
+        let json_string = r#"{
+            "use": "usual",            
+            "system": "urn:oid:"
+        }"#;
+
+        match serde_json::from_str::<serde_json::Value>(json_string) {
+            Ok(response) => {
+                if let Some(_obj) = response.as_object() {
+                    assert!(!contains_objects_or_arrays(_obj));
+                }
+                else {
+                    assert!(false);
+                }
+            }
+            Err(e) => {
+                eprintln!("Error parsing JSON: {}", e);
+                assert!(false);
+            }
+        }
+    }
+
+    #[test]
+    fn test_joined_array_1() {
+
+        let json_string = r#"{
+            "given": ["Anna-Maria", "Magdalena", "Luisa"]
+        }"#;
+
+        match serde_json::from_str::<serde_json::Value>(json_string) {
+            Ok(response) => {
+                if let Some(_obj) = response.as_object() {
+                    assert_eq!(joined_arr(_obj, "given"), Some(json!("Anna-Maria Magdalena Luisa")));
+                }
+                else {
+                    assert!(false);
+                }
+            }
+            Err(e) => {
+                eprintln!("Error parsing JSON: {}", e);
+                assert!(false);
+            }
+        }
+    }
+
+    #[test]
+    fn test_joined_array_2() {
+
+        let json_string = r#"{
+            "foo": ["Anna-Maria", "Magdalena", "Luisa"]
+        }"#;
+
+        match serde_json::from_str::<serde_json::Value>(json_string) {
+            Ok(response) => {
+                if let Some(_obj) = response.as_object() {
+                    assert_eq!(joined_arr(_obj, "given"), None);
+                }
+                else {
+                    assert!(false);
+                }
+            }
+            Err(e) => {
+                eprintln!("Error parsing JSON: {}", e);
+                assert!(false);
+            }
+        }
+    }
+
+    #[test]
+    fn test_joined_array_3() {
+
+        let json_string = r#"{
+            "given": [
+                {"hello": "Anna-Maria"},
+                {"hi": "Magdalena"},  
+                {"ciao": "Luisa"}
+            ]
+        }"#;
+
+        match serde_json::from_str::<serde_json::Value>(json_string) {
+            Ok(response) => {
+                if let Some(_obj) = response.as_object() {
+                    assert_eq!(joined_arr(_obj, "given"), Some(json!("")));
+                }
+                else {
+                    assert!(false);
+                }
+            }
+            Err(e) => {
+                eprintln!("Error parsing JSON: {}", e);
+                assert!(false);
+            }
+        }
+    }
 }
