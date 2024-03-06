@@ -2,7 +2,7 @@
 
 ## Build
 ```bash
-./buid.sh
+./build.sh
 ```
 
 ## Run
