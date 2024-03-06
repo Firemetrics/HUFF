@@ -1,27 +1,135 @@
+use std::fs::File;
+use std::io::{self, BufRead, ErrorKind};
+use std::collections::HashMap;
+//use std::path::Path;
 use serde_json;
 use serde_json::json;
+use jsonpath_lib as jsonpath;
 use serde_yaml;
+extern crate regex;
+use regex::Regex;
 
-fn joined_arr(o: &serde_json::Map<String, serde_json::Value>, k: &str) -> Option<serde_json::Value> {
-    if let Some(_val) = o.get(k) {
-        if let Some(_val_arr) = _val.as_array() {
-            return Some(json!(_val_arr.iter().filter_map(|opt| opt.as_str()).collect::<Vec<&str>>().join(" ")));
+/**
+ * Extract first element from JSONPath query.
+ * This function is very quiet and does not report any errors but returns empty strings instead.
+ * Todo: Add debug messages on errors.
+ */
+fn xjsonp_first(v: &serde_json::Value, json_path: &str) -> String {
+    let mut selector = jsonpath::selector(v);
+    match selector(json_path) {
+        Ok(ret) => {
+            if ret.len() == 1 {
+                match ret[0].as_str() {
+                    Some(s) => return s.to_string(),
+                    None => match ret[0].as_array() {
+                        Some(arr) => return arr.iter().filter_map(|opt| opt.as_str()).collect::<Vec<&str>>().join(" "),
+                        None => match ret[0].as_number() {
+                            Some(n) => return n.to_string(),
+                            None => match ret[0].as_bool() {
+                                Some(b) => return b.to_string(),
+                                None => return "".to_string()
+                            }
+                        }
+                    }
+                }
+            }
+            else if ret.len() > 1 {
+                return ret.iter().filter_map(|opt| opt.as_str()).collect::<Vec<&str>>().join(" ");
+            }
+
+            return "".to_string();
+        }
+        _ => {
+            return "".to_string();
         }
     }
-    return None
 }
 
-fn contains_objects_or_arrays(_obj: &serde_json::Map<String, serde_json::Value>) -> bool {
-    _obj.iter().any(|(_, v)| v.is_object() || v.is_array())
+fn parse_signature(input: &str) -> Result<Vec<String>, std::io::Error> {
+    
+    let pattern = Regex::new(r"^#\[(.*)\]$").unwrap();
+    if let Some(captures) = pattern.captures(input) {
+        let trimmed = captures.get(1).unwrap().as_str(); // Get inner contents
+        Ok(trimmed.split(',')
+                  .map(|s| s.trim().to_string())
+                  .collect())
+    } else {
+        Err(std::io::Error::new(
+                ErrorKind::InvalidData,
+                format!("Invalid signature format: {}", input)))
+    }
 }
 
-fn reformat_fhir(v: &serde_json::Value, k: Option<&str>) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+fn apply_format(v: &serde_json::Value, input: &str) -> String {
+    let re = Regex::new(r"\{(\$.+?)\}").expect("Failed to compile regex");
+    return re.replace_all(input, |caps: &regex::Captures| xjsonp_first(v, &caps[1])).to_string()
+}
+
+fn signature_to_str(signature: Vec<String>) -> String {
+    // sort and join signature
+    let mut sorted_signature = signature.clone();
+    sorted_signature.sort();
+    return sorted_signature.join("|");
+}
+
+fn read_mapping(file_path: &Option<String>) -> io::Result<Vec<String>> {
+    match file_path {
+        Some(path) => {
+            let file = File::open(path)?;
+            let reader = io::BufReader::new(file);
+            let filtered_lines = reader.lines()
+                                    .filter_map(Result::ok)
+                                    .filter(|line| !line.trim_start().starts_with("//")) // remove comments
+                                    .collect::<Vec<String>>();
+            return Ok(filtered_lines);
+        }
+        None => {
+            let mapping_str = include_str!("../resources/mapping.hfc");
+            let filtered_lines = mapping_str.lines()
+                                    .filter(|line| !line.trim_start().starts_with("//")) // remove comments
+                                    .collect::<Vec<&str>>()
+                                    .iter()
+                                    .map(|&line| line.to_owned())
+                                    .collect();
+            return Ok(filtered_lines);
+        }
+    }
+}
+
+fn process_mapping(file_path: &Option<String>) -> Result<HashMap<String, String>, std::io::Error> {
+    let mut mappers = HashMap::new();
+    let lines = read_mapping(file_path)?;
+
+    for pair in lines.chunks(2) {
+        match pair {
+            [signature_str, format_str] => {
+                if let Ok(parsed_signature) = parse_signature(signature_str.trim()) {
+                    mappers.insert(
+                        signature_to_str(parsed_signature), 
+                        format_str.trim().to_string()
+                    );
+                } else {
+                    return Err(std::io::Error::new(ErrorKind::InvalidData, "Failed to parse signature"));
+                }
+            }
+            _ => return Err(std::io::Error::new(ErrorKind::InvalidData, "Invalid format: unequal number of lines in mapping file"))
+        }
+    }
+
+    Ok(mappers)
+}
+
+/**
+ * Recurse over JSON tree and pass branches to reformatting function.
+ */
+fn reformat_fhir(v: &serde_json::Value, k: Option<&str>, _formatters: &HashMap<String, String>) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
     match k {
+        // First-pass of JSON structure
         None => {
             if let Some(obj) = v.as_object() {
                 let reformatted_obj: serde_json::Map<std::string::String, serde_json::Value> = obj
                     .iter()
-                    .map(|(k, v)| Ok((k.clone(), reformat_fhir(v, Some(k))?)))
+                    .map(|(k, v)| Ok((k.clone(), reformat_fhir(v, Some(k), _formatters)?)))
                     .collect::<Result<_, Box<dyn std::error::Error>>>()?;
                 Ok(serde_json::Value::Object(reformatted_obj))
             } else {
@@ -29,19 +137,23 @@ fn reformat_fhir(v: &serde_json::Value, k: Option<&str>) -> Result<serde_json::V
             }
         }
         Some(key) => {
-            if let Some(obj) = v.as_object() {
-                hf_summarize(obj, key)
+            // object
+            if v.is_object() {
+                hf_summarize_(v, key, _formatters)
             } 
+            // array
             else if let Some(arr) = v.as_array() {
                 let elements = arr
                     .iter()
-                    .map(|v2| reformat_fhir(v2, Some(key)))
+                    .map(|v2| reformat_fhir(v2, Some(key), _formatters))
                     .collect::<Result<Vec<_>, Box<dyn std::error::Error>>>()?;
+                // unlist array if len==1
                 match elements.len() {
                     1 => Ok(elements[0].clone()),
                     _ => Ok(serde_json::Value::Array(elements)),
                 }
             } 
+            // scalar
             else {
                 Ok(v.clone())
             }
@@ -49,111 +161,41 @@ fn reformat_fhir(v: &serde_json::Value, k: Option<&str>) -> Result<serde_json::V
     }
 }
 
-fn hf_telecom(obj: &serde_json::Map<String, serde_json::Value>) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
-    
-    let keys = obj.keys().map(|k| k.as_str()).collect::<Vec<&str>>();
-    let sliced = keys.as_slice();
-
-    match &sliced[..] {
-        &["system", "value", "use"] => {
-            if let (Some(serde_json::Value::String(value)), Some(serde_json::Value::String(system)), Some(serde_json::Value::String(use_val))) =
-                (obj.get("value"), obj.get("system"), obj.get("use"))
-            {
-                return Ok(json!(format!("{} | {} | {}", value, system, use_val)));
-            }
-        }
-        &["system", "value"] => {
-            if let (Some(serde_json::Value::String(value)), Some(serde_json::Value::String(system))) =
-                (obj.get("value"), obj.get("system"))
-            {
-                return Ok(json!(format!("{} | {}", value, system)));
-            }
-        }
-        _ => {}
-    }
-
-    reformat_fhir(&json!(obj), None).map_err(|e| e.into())
-}
-
-fn hf_name(obj: &serde_json::Map<String, serde_json::Value>) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
-
-    if let Some(text) = obj.get("text") {
-        return Ok(json!(text));
-    }
-    
-    let given = joined_arr(obj, "given");        
-    let family = obj.get("family");
-    let prefix = obj.get("prefix");
-    let suffix = obj.get("suffix");
-    
-    let _name_vec = vec![prefix, given.as_ref(), family, suffix];
-    let _name = _name_vec.iter().filter_map(|opt| opt.as_ref().and_then(|v| v.as_str())).collect::<Vec<&str>>().join(" ");
-
-    if let Some(_use) = obj.get("use") {
-        return Ok(json!(format!("{} | {}", _name, _use.as_str().unwrap())));
-    } else {
-        return Ok(json!(_name));
-    }
-}
-
-fn hf_summarize(_obj: &serde_json::Map<String, serde_json::Value>, _key: &str) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+/**
+ * Main formatting function. Quite a hack but it works for now.
+ */
+fn hf_summarize_(_obj: &serde_json::Value, _key: &str, _formatters: &HashMap<String, String>) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
 
     // special case: Reference
-    if let Some(_ref) = _obj.get("reference") {
-        if _obj.keys().len() == 1 {
-            return Ok(json!(format!("Reference({})", _ref.as_str().unwrap())));
+    // Unnest the reference object and wrap into `Reference(...)` for better parseability.
+    if let Some(_map) = _obj.as_object() {
+        if let Some(_ref) = _map.get("reference") {
+            if _map.keys().len() == 1 {
+                return Ok(json!(format!("Reference({})", _ref.as_str().unwrap())));
+            }
         }
-    }
-    
-    // special case: telecom
-    if _key == "telecom" {
-        return hf_telecom(_obj);
-    }
 
-    // special case: name
-    if _key == "name" {
-        return hf_name(_obj);
-    }
+        // apply custom formatters if any
+        let _attr = _map.keys().map(|k| k.to_string()).collect::<Vec<String>>();
+        let _sign_str = signature_to_str(_attr);
 
-    // check if any members are objects
-    if !contains_objects_or_arrays(_obj) {
+        match _formatters.get(&_sign_str) {
+            Some(format_str) => {
+                return Ok(json!(apply_format(_obj, format_str)));
+            }
+            None => {}
+        };
 
-        // generic case
-        // this is just a quick and dirty way to summarize the object
-        let tags = [
-            "system", "value", "unit", "code", "version", "display", 
-            "url", "valueInstant", "valueString", "valueBoolean", "valueCode"
-        ];
+        // go deeper and pass subelements back to recursion function
+        let reformatted_obj: serde_json::Map<std::string::String, serde_json::Value> = _map
+            .iter()
+            .map(|(k, v)| Ok((k.clone(), reformat_fhir(v, Some(k), _formatters)?)))
+            .collect::<Result<_, Box<dyn std::error::Error>>>()?;
 
-        // prioritized tags
-        let mut prim_tags = tags.iter()        
-            .filter_map(|&tag| match _obj.get(tag) { 
-                Some(v) => Some(v.as_str().unwrap().to_string()),
-                None => None
-            })
-            .collect::<Vec<String>>();
-
-        // left-over tags
-        let sec_tags = _obj.keys()
-            .filter(|&k| !tags.contains(&k.as_str()))
-            .map(|k| k.to_string())
-            .collect::<Vec<String>>();
-
-        // concatenate tags    
-        prim_tags.extend(sec_tags);
-        let summary = prim_tags.join(" | ");
-
-        if !summary.is_empty() {
-            return Ok(json!(summary));
-        }
+        return Ok(serde_json::Value::Object(reformatted_obj));
     }
 
-    let reformatted_obj: serde_json::Map<std::string::String, serde_json::Value> = _obj
-        .iter()
-        .map(|(k, v)| Ok((k.clone(), reformat_fhir(v, Some(k))?)))
-        .collect::<Result<_, Box<dyn std::error::Error>>>()?;
-    return Ok(serde_json::Value::Object(reformatted_obj))
-
+    return Ok(_obj.clone());
 }
 
 fn to_yaml(obj: &serde_json::Value) -> Result<String, serde_yaml::Error> {
@@ -161,7 +203,10 @@ fn to_yaml(obj: &serde_json::Value) -> Result<String, serde_yaml::Error> {
 }
 
 pub fn friendly(fhir_obj: serde_json::Value) -> Result<String, Box<dyn std::error::Error>> {
-    let reformatted_obj = reformat_fhir(&fhir_obj, None)?;
+    // load custom mappers
+    let _formatters = process_mapping(&None)?;
+    // reformat FHIR object
+    let reformatted_obj = reformat_fhir(&fhir_obj, None, &_formatters)?;
     Ok(to_yaml(&reformatted_obj)?)
 }
 
@@ -169,6 +214,51 @@ pub fn friendly(fhir_obj: serde_json::Value) -> Result<String, Box<dyn std::erro
 mod tests {
     // importing names from outer (for mod tests) scope.
     use super::*;
+
+    #[test]
+    fn test_read_mapping() {
+        let file_path = "../resources/mapping.hfc";
+        println!("Reading mapping file: {}", file_path);
+        let _ = process_mapping(&file_path);
+        //println!("{:?}", mapping);
+    }
+
+    #[test]
+    fn test_xjsonp() {
+        let json_string = r#"{
+            "use": "usual",
+            "type": {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                        "code": "MR"
+                    }
+                ]
+            },
+            "system": "urn:oid:"
+        }"#;
+
+        match serde_json::from_str::<serde_json::Value>(json_string) {
+            Ok(v) => {
+                match xjsonp(&v, "$..code") {
+                    Ok(s) => {
+                        assert_eq!(s, r#"["MR"]"#);
+                    }
+                    Err(e) => {
+                        eprintln!("Error parsing JSON: {}", e);
+                        assert!(false);
+                    }
+                }
+                assert_eq!(xjsonp_first(&v, "$..code"), "MR");
+                assert_eq!(xjsonp_first(&v, "$..notthere"), "");
+                assert_eq!(xjsonp_first(&v, "$..type"), "");
+            }
+            Err(e) => {
+                eprintln!("Error parsing JSON: {}", e);
+                assert!(false);
+            }
+        }
+    }
 
     #[test]
     fn test_contains_objects_or_arrays_1() {

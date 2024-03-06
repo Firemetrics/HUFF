@@ -1,0 +1,49 @@
+// Identifier
+#[system, value] 
+{$.system} | {$.value}
+#[system, value, use]
+{$.system} | {$.value} | {$.use}
+#[system, value, use, period]
+{$.system} | {$.value} | {$.use} | {$.period.start} - {$.period.end}
+// Extension
+#[url, valueInstant]
+{$.url} | {$.valueInstant}
+#[url, valueString]
+{$.url} | {$.valueString}
+#[url, valueBase64Binary]
+{$.url} | {$.valueBase64Binary}
+#[url, valuePositiveInt]
+{$.url} | {$.valuePositiveInt}
+// Coding
+#[system, code]
+{$.system} | {$.code}
+#[system, code, version]
+{$.system} | {$.code} | v{$.version}
+#[system, code, display]
+{$.system} | {$.code} | {$.display}
+#[system, code, display, use]
+{$.system} | {$.code} | {$.display} | {$.use}
+#[system, code, display, version]
+{$.system} | {$.code} | {$.display} | v{$.version}
+#[system, display, version]
+{$.system} | {$.display} | v{$.version}
+#[system, code, display, use, version]
+{$.system} | {$.code} | {$.display} | {$.use} | v{$.version}
+// Period
+#[start, end]
+{$.start} - {$.end}
+// Patient.name
+#[given, family]
+{$.given} {$.family}
+#[given, family, use]
+{$.given} {$.family} | {$.use}
+// Quantity
+#[value, unit]
+{$.value} {$.unit}
+#[value, unit, system]
+{$.value} {$.unit} | {$.system}
+#[value, unit, system, code]
+{$.value} {$.unit} | {$.system} | {$.code}
+// Range
+#[low, high]
+{$.low.value} {$.low.unit} - {$.high.value} {$.high.unit}
