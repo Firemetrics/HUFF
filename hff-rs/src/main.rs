@@ -1,10 +1,22 @@
 use std::io::{self, BufRead};
-use serde_json; 
+use std::path::Path;
+use serde_json;
+use clap::Parser;
 
 mod hff;
 
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Path to a custom mapping file in *.hfc format
+    #[arg(short, long)]
+    mapping: Option<String>,
+}
+
 fn main() {
     
+    let args = Args::parse();
+
     let stdin = io::stdin();
     let mut handle = stdin.lock();
 
@@ -22,7 +34,15 @@ fn main() {
 
     match serde_json::from_str(&buffer) {
         Ok(response) => {
-            println!("{}", hff::builder().run(response).unwrap());
+
+            match args.mapping {
+                Some(mapping) => {
+                    println!("{}", hff::builder().with_file(&Path::new(&mapping)).run(response).unwrap());
+                }
+                None => {
+                    println!("{}", hff::builder().run(response).unwrap());
+                }
+            }   
         }
         Err(e) => {
             eprintln!("Error parsing JSON: {}", e);
