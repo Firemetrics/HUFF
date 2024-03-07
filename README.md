@@ -1,3 +1,5 @@
+![HUFF](./chrome-extension/icons/64.png)
+
 # HUFF / Human-friendly FHIR (no pun intended)
 
 ## Build
