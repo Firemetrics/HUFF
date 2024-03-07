@@ -29,9 +29,12 @@ const restoreOptions = async () => {
             makeLinksClickable: true, 
             makeReferencesClickable: true, 
             handleContentTypes: contentTypes,
-            customCssStyles: css
+            customCssStyles: css,
+            customMappings: ''
         }
     );
+
+    console.log(extPrefs);
 };
 
 /**

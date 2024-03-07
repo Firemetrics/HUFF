@@ -32,11 +32,13 @@
 // Period
 #[start, end]
 {$.start} - {$.end}
-// Patient.name
+// *.name
 #[given, family]
 {$.given} {$.family}
 #[given, family, use]
 {$.given} {$.family} | {$.use}
+#[given, family, prefix]
+{$.prefix} {$.given} {$.family}
 // Quantity
 #[value, unit]
 {$.value} {$.unit}

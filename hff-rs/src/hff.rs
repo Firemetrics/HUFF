@@ -1,3 +1,4 @@
+use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::io::{self, BufRead, ErrorKind};
 use std::collections::HashMap;
@@ -15,6 +16,40 @@ use regex::Regex;
  * Todo: Add debug messages on errors.
  */
 fn xjsonp_first(v: &serde_json::Value, json_path: &str) -> String {
+    let mut selector = jsonpath::selector(v);
+    match selector(json_path) {
+        Ok(ret) => {
+            if ret.len() == 1 {
+                match ret[0].as_str() {
+                    Some(s) => return s.to_string(),
+                    None => match ret[0].as_array() {
+                        Some(arr) => return arr.iter().filter_map(|opt| opt.as_str()).collect::<Vec<&str>>().join(" "),
+                        None => match ret[0].as_number() {
+                            Some(n) => return n.to_string(),
+                            None => match ret[0].as_bool() {
+                                Some(b) => return b.to_string(),
+                                None => return "".to_string()
+                            }
+                        }
+                    }
+                }
+            }
+            else if ret.len() > 1 {
+                return ret.iter().filter_map(|opt| opt.as_str()).collect::<Vec<&str>>().join(" ");
+            }
+
+            return "".to_string();
+        }
+        _ => {
+            return "".to_string();
+        }
+    }
+}
+
+/**
+ * Check if a JSON Path expression matches.
+ */
+fn xjsonp_match(v: &serde_json::Value, json_path: &str) -> String {
     let mut selector = jsonpath::selector(v);
     match selector(json_path) {
         Ok(ret) => {
@@ -72,35 +107,37 @@ fn signature_to_str(signature: Vec<String>) -> String {
     return sorted_signature.join("|");
 }
 
-fn read_mapping(file_path: &Option<String>) -> io::Result<Vec<String>> {
-    match file_path {
-        Some(path) => {
-            let file = File::open(path)?;
-            let reader = io::BufReader::new(file);
-            let filtered_lines = reader.lines()
-                                    .filter_map(Result::ok)
-                                    .filter(|line| !line.trim_start().starts_with("//")) // remove comments
-                                    .collect::<Vec<String>>();
-            return Ok(filtered_lines);
-        }
-        None => {
-            let mapping_str = include_str!("../resources/mapping.hfc");
-            let filtered_lines = mapping_str.lines()
-                                    .filter(|line| !line.trim_start().starts_with("//")) // remove comments
-                                    .collect::<Vec<&str>>()
-                                    .iter()
-                                    .map(|&line| line.to_owned())
-                                    .collect();
-            return Ok(filtered_lines);
-        }
-    }
+fn load_mapping_from_file(path: &Path) -> io::Result<Vec<String>> {
+    let file = File::open(path)?;
+    let reader = io::BufReader::new(file);
+    let filtered_lines = reader.lines()
+                            .filter_map(Result::ok)
+                            .filter(|line| !line.trim_start().starts_with("//")) // remove comments
+                            .collect::<Vec<String>>();
+    return Ok(filtered_lines);
 }
 
-fn process_mapping(file_path: &Option<String>) -> Result<HashMap<String, String>, std::io::Error> {
-    let mut mappers = HashMap::new();
-    let lines = read_mapping(file_path)?;
+fn load_mapping_from_str(mapping_str: &str) -> io::Result<Vec<String>> {
+    let filtered_lines = mapping_str.lines()
+                            .filter(|line| !line.trim_start().starts_with("//")) // remove comments
+                            .collect::<Vec<&str>>()
+                            .iter()
+                            .map(|&line| line.to_owned())
+                            .collect();
+    return Ok(filtered_lines);
+}
 
-    for pair in lines.chunks(2) {
+pub fn default_mapping() -> &'static str {
+    include_str!("../resources/mapping.hfc")
+}
+
+fn load_default_mapping() -> io::Result<Vec<String>> {
+    load_mapping_from_str(default_mapping())
+}
+
+fn process_mapping(mapping: &Vec<String>) -> Result<HashMap<String, String>, std::io::Error> {
+    let mut mappers = HashMap::new();
+    for pair in mapping.chunks(2) {
         match pair {
             [signature_str, format_str] => {
                 if let Ok(parsed_signature) = parse_signature(signature_str.trim()) {
@@ -173,6 +210,11 @@ fn hf_summarize_(_obj: &serde_json::Value, _key: &str, _formatters: &HashMap<Str
             if _map.keys().len() == 1 {
                 return Ok(json!(format!("Reference({})", _ref.as_str().unwrap())));
             }
+            else {
+                let mut _new_map = _map.clone();
+                _new_map.insert("reference".to_string(), json!(format!("Reference({})", _ref.as_str().unwrap())));
+                return Ok(json!(_new_map));
+            }
         }
 
         // apply custom formatters if any
@@ -202,13 +244,62 @@ fn to_yaml(obj: &serde_json::Value) -> Result<String, serde_yaml::Error> {
     serde_yaml::to_string(obj)
 }
 
-pub fn friendly(fhir_obj: serde_json::Value) -> Result<String, Box<dyn std::error::Error>> {
-    // load custom mappers
-    let _formatters = process_mapping(&None)?;
+pub struct FriendlyBuilder {}
+impl FriendlyBuilder {
+    pub fn with_file(&self, mapping_file: &Path) -> FriendlyBuilderFromMappingFile {
+        FriendlyBuilderFromMappingFile {
+            mapping_file: mapping_file.to_path_buf()
+        }
+    }
+
+    pub fn with_string(&self, mapping_str: &str) -> FriendlyBuilderFromMappingString {
+        FriendlyBuilderFromMappingString {
+            mapping_str: mapping_str.to_string()
+        }
+    }
+
+    pub fn run(&self, fhir_obj: serde_json::Value) -> Result<String, Box<dyn std::error::Error>> {
+        // load custom mappers from file
+        let mapping = load_default_mapping()?;
+        let _formatters = process_mapping(&mapping)?;
+        return _friendly(fhir_obj, &_formatters);
+    }
+}
+
+pub struct FriendlyBuilderFromMappingFile {
+    mapping_file: PathBuf
+}
+impl FriendlyBuilderFromMappingFile {
+    pub fn run(&self, fhir_obj: serde_json::Value) -> Result<String, Box<dyn std::error::Error>> {
+        // load custom mappers from file
+        let mapping = load_mapping_from_file(self.mapping_file.as_path())?;
+        let _formatters = process_mapping(&mapping)?;
+        return _friendly(fhir_obj, &_formatters);
+    }
+}
+
+pub struct FriendlyBuilderFromMappingString {
+    mapping_str: String
+}
+impl FriendlyBuilderFromMappingString {
+    pub fn run(&self, fhir_obj: serde_json::Value) -> Result<String, Box<dyn std::error::Error>> {
+        // load custom mappers from file
+        let mapping = load_mapping_from_str(self.mapping_str.as_str())?;
+        let _formatters = process_mapping(&mapping)?;
+        return _friendly(fhir_obj, &_formatters);
+    }
+}
+
+pub fn friendly() -> FriendlyBuilder {
+    FriendlyBuilder{}
+}
+
+fn _friendly(fhir_obj: serde_json::Value, formatters: &HashMap<String, String>) -> Result<String, Box<dyn std::error::Error>> {
     // reformat FHIR object
-    let reformatted_obj = reformat_fhir(&fhir_obj, None, &_formatters)?;
+    let reformatted_obj = reformat_fhir(&fhir_obj, None, &formatters)?;
     Ok(to_yaml(&reformatted_obj)?)
 }
+
 
 #[cfg(test)]
 mod tests {

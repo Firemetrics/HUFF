@@ -6,7 +6,7 @@ hljs.registerLanguage('yaml', yaml);
 import * as linkify from 'https://cdn.jsdelivr.net/npm/linkifyjs@4.1.3/+esm';
 import linkifyHtml from "https://cdn.jsdelivr.net/npm/linkify-html@4.1.3/+esm";
 
-import init, { friendly_js } from "./static/hff-wasm.js";
+import init, { friendly_js, friendly_js_custom, default_mapping_js } from "./static/hff-wasm.js";
 
 // inject the highlight.js stylesheet
 const hljsStyles = document.createElement('link');
@@ -29,8 +29,12 @@ init().then(() => {
     for (const preElement of preElements) {
         try {            
             
-            // Create HUFF
-            const result = JSON.parse(friendly_js(preElement.textContent));
+            // Create HUFF (optionally with custom mappings if present)
+            const result = JSON.parse(
+                extPrefs.customMappings 
+                    ? friendly_js_custom(preElement.textContent, extPrefs.customMappings) 
+                    : friendly_js(preElement.textContent)
+            );
 
             if (result.success === true) {
                 let yaml = result.yaml;

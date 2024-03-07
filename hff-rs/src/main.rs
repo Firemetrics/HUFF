@@ -25,7 +25,7 @@ fn main() {
 
     match serde_json::from_str(&buffer) {
         Ok(response) => {
-            println!("{}", friendly(response).unwrap());
+            println!("{}", friendly().run(response).unwrap());
         }
         Err(e) => {
             eprintln!("Error parsing JSON: {}", e);

@@ -1,4 +1,6 @@
 
+import init, { default_mapping_js } from "./static/hff-wasm.js";
+
 // Restores select box and checkbox state using the preferences
 // stored in chrome.storage.
 const restoreOptions = async () => {
@@ -12,6 +14,10 @@ const restoreOptions = async () => {
         css = await response.text();
     }
 
+    // init wasm and get default mappings
+    await init();
+    let mappings = default_mapping_js();
+
     let contentTypes = [
         'application/fhir+json',
         'application/json+fhir'
@@ -23,7 +29,8 @@ const restoreOptions = async () => {
             makeLinksClickable: true, 
             makeReferencesClickable: true, 
             handleContentTypes: contentTypes.join('\n'),
-            customCssStyles: css
+            customCssStyles: css,
+            customMappings: mappings
         },
         (items) => {
             document.getElementById('highlightHuff').checked = items.highlightHuff;
@@ -31,6 +38,7 @@ const restoreOptions = async () => {
             document.getElementById('makeReferencesClickable').checked = items.makeReferencesClickable;
             document.getElementById('handleContentTypes').value = items.handleContentTypes;
             document.getElementById('customCssStyles').value = items.customCssStyles;
+            document.getElementById('customMappings').value = items.customMappings;
         }
     );
 };
@@ -43,6 +51,7 @@ const saveOptions = () => {
     const makeReferencesClickable = document.getElementById('makeReferencesClickable').checked;
     const handleContentTypes = document.getElementById('handleContentTypes').value;
     const customCssStyles = document.getElementById('customCssStyles').value;
+    const customMappings = document.getElementById('customMappings').value;
 
     chrome.storage.sync.set(
         { 
@@ -50,7 +59,8 @@ const saveOptions = () => {
             makeLinksClickable: makeLinksClickable, 
             makeReferencesClickable: makeReferencesClickable, 
             handleContentTypes: handleContentTypes, 
-            customCssStyles: customCssStyles
+            customCssStyles: customCssStyles,
+            customMappings: customMappings
         },
         () => {
             // Update status to let user know options were saved.
