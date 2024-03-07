@@ -6,7 +6,7 @@ hljs.registerLanguage('yaml', yaml);
 import * as linkify from 'https://cdn.jsdelivr.net/npm/linkifyjs@4.1.3/+esm';
 import linkifyHtml from "https://cdn.jsdelivr.net/npm/linkify-html@4.1.3/+esm";
 
-import init, { friendly_js, friendly_js_custom, default_mapping_js } from "./static/hff-wasm.js";
+import init, { js_fhir_to_huff, js_fhir_to_huff_custom } from "./static/hff-wasm.js";
 
 // inject the highlight.js stylesheet
 const hljsStyles = document.createElement('link');
@@ -32,8 +32,8 @@ init().then(() => {
             // Create HUFF (optionally with custom mappings if present)
             const result = JSON.parse(
                 extPrefs.customMappings 
-                    ? friendly_js_custom(preElement.textContent, extPrefs.customMappings) 
-                    : friendly_js(preElement.textContent)
+                    ? js_fhir_to_huff_custom(preElement.textContent, extPrefs.customMappings) 
+                    : js_fhir_to_huff(preElement.textContent)
             );
 
             if (result.success === true) {

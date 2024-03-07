@@ -1,7 +1,6 @@
 use std::io::{self, BufRead};
-use serde_json; // Add import statement for serde_json crate
+use serde_json; 
 
-use crate::hff::friendly;
 mod hff;
 
 fn main() {
@@ -21,11 +20,9 @@ fn main() {
         }
     }
 
-    //println!("{}", buffer);
-
     match serde_json::from_str(&buffer) {
         Ok(response) => {
-            println!("{}", friendly().run(response).unwrap());
+            println!("{}", hff::builder().run(response).unwrap());
         }
         Err(e) => {
             eprintln!("Error parsing JSON: {}", e);
