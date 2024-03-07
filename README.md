@@ -11,7 +11,7 @@ So what is HUFF? It is simply a condensation of the JSON tree into a more human 
 
 It's not a new format, it's just a different way of presenting the same data. It's not a replacement for JSON, it's just a different way of looking at the same data. 
 
-Be friendly. Be HUFF.
+Just be friendly.
 
 ## Build
 ```bash
