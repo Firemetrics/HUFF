@@ -2,6 +2,17 @@
 
 # HUFF / Human-friendly FHIR (no pun intended)
 
+## WTF is HUFF? And why?
+The dense and nested structure of JSON, filled with parentheses and commas, can be overwhelming, making it difficult to quickly grasp the hierarchy and data relationships in FHIR resources. In addition, a typical FHIR resource is a complex JSON object with many nested objects and arrays. This makes it difficult to read and understand the data. Also, FHIR comes with a lot of repeating patterns and structures, e.g., `system`, `value`, or `system`, `value`, `display`, or `value`, `unit`, `system`. You know what I mean. For experienced users, these can easily be joined into one line without losing much expressiveness.
+
+
+
+So what is HUFF? It is simply a condensation of the JSON tree into a more human readable structure. It's like turning a big thorny bush into a cute little bonsai tree - easier on the eyes and less prickly. And well... then the whole thing is transformed into YAML, because its cleaner, indentation-based format offers a more intuitive and visually organized alternative. 
+
+It's not a new format, it's just a different way of presenting the same data. It's not a replacement for JSON, it's just a different way of looking at the same data. 
+
+Be friendly. Be HUFF.
+
 ## Build
 ```bash
 ./build.sh
