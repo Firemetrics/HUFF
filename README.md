@@ -22,6 +22,16 @@ curl -s --header 'Authorization: Bearer '"$AUTH_TOKEN"'' "https://fhir.com/Pract
 ## Install chrome extension
 Just build and load the `chrome-extension` directory as an unpacked extension. You can modify the mappings (in *.hfc format) in the extension options.
 
+### Chrome extension screenshots
+
+URL: https://demo.kodjin.com/fhir/Patient/f8ac8f25-99fd-471e-befa-5a0b49bbe9a3
+
+JSON presentation of the FHIR resource:
+![JSON](./screenshots/kodjin-patient-json.png)
+
+HUFF presentation of the same FHIR resource:
+![HUFF](./screenshots/kodjin-patient-huff.png)
+
 ## Customization at build time
 You can customize the output by editing the `hff-rs/resources/mapping.hfc` file. The syntax is a simple format. The `hff-rs/resources/mapping.hfc` file is a good starting point. Quickly, the format is:
 - Lines starting with `//` are comments
