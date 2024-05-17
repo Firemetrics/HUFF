@@ -1,11 +1,14 @@
-use std::collections::HashMap;
 use serde_json;
 use serde_json::json;
 use serde_yaml;
+use std::collections::HashMap;
 
 use crate::hff::mapping;
 
-pub fn json_to_huff(fhir_obj: serde_json::Value, formatters: &HashMap<String, String>) -> Result<String, Box<dyn std::error::Error>> {
+pub fn json_to_huff(
+    fhir_obj: serde_json::Value,
+    formatters: &HashMap<String, String>,
+) -> Result<String, Box<dyn std::error::Error>> {
     // reformat FHIR object
     let reformatted_obj = traverse_fhir(&fhir_obj, None, &formatters)?;
     Ok(json_to_yaml(&reformatted_obj)?)
@@ -18,7 +21,11 @@ fn json_to_yaml(obj: &serde_json::Value) -> Result<String, serde_yaml::Error> {
 /**
  * Recurse over JSON tree and pass branches to reformatting function.
  */
-fn traverse_fhir(v: &serde_json::Value, k: Option<&str>, _formatters: &HashMap<String, String>) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+fn traverse_fhir(
+    v: &serde_json::Value,
+    k: Option<&str>,
+    _formatters: &HashMap<String, String>,
+) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
     match k {
         // First-pass of JSON structure
         None => {
@@ -36,7 +43,7 @@ fn traverse_fhir(v: &serde_json::Value, k: Option<&str>, _formatters: &HashMap<S
             // object
             if v.is_object() {
                 reformat(v, key, _formatters)
-            } 
+            }
             // array
             else if let Some(arr) = v.as_array() {
                 let elements = arr
@@ -48,7 +55,7 @@ fn traverse_fhir(v: &serde_json::Value, k: Option<&str>, _formatters: &HashMap<S
                     1 => Ok(elements[0].clone()),
                     _ => Ok(serde_json::Value::Array(elements)),
                 }
-            } 
+            }
             // scalar
             else {
                 Ok(v.clone())
@@ -60,8 +67,11 @@ fn traverse_fhir(v: &serde_json::Value, k: Option<&str>, _formatters: &HashMap<S
 /**
  * Main formatting function. Quite a hack but it works for now.
  */
-fn reformat(_obj: &serde_json::Value, _key: &str, _formatters: &HashMap<String, String>) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
-
+fn reformat(
+    _obj: &serde_json::Value,
+    _key: &str,
+    _formatters: &HashMap<String, String>,
+) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
     // special case: Reference
     // Unnest the reference object and wrap into `Reference(...)` for better parseability.
     if let Some(_map) = _obj.as_object() {
@@ -70,10 +80,23 @@ fn reformat(_obj: &serde_json::Value, _key: &str, _formatters: &HashMap<String, 
             if _map.keys().len() == 1 {
                 return Ok(json!(format!("Reference({})", _ref.as_str().unwrap())));
             }
-            // if there are other keys, we need to keep them and just modify the 'reference' key
-            else { 
+            // in some cases, the 'reference' key is nested in a key named 'reference' :P
+            // https://hl7.org/fhir/R4/consent-definitions.html#Consent.provision.actor.reference
+            else if let Some(reference) = _ref.as_object().and_then(|obj| obj.get("reference")) {
                 let mut _new_map = _map.clone();
-                _new_map.insert("reference".to_string(), json!(format!("Reference({})", _ref.as_str().unwrap())));
+                _new_map.insert(
+                    "reference".to_string(),
+                    json!(format!("Reference({})", reference.as_str().unwrap())),
+                );
+                return Ok(json!(_new_map));
+            }
+            // if there are other keys, we need to keep them and just modify the 'reference' key
+            else {
+                let mut _new_map = _map.clone();
+                _new_map.insert(
+                    "reference".to_string(),
+                    json!(format!("Reference({})", _ref.as_str().unwrap())),
+                );
                 return Ok(json!(_new_map));
             }
         }
