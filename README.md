@@ -2,6 +2,8 @@
 
 # HUFF / Human-friendly FHIR (no pun intended)
 
+[![Affiliated with RTG WisPerMed](https://img.shields.io/badge/Affiliated-RTG%202535%20WisPerMed-blue)](https://wispermed.org/)
+
 ## WTF is HUFF? And why?
 The dense and nested structure of JSON, filled with parentheses and commas, can be overwhelming, making it difficult to quickly grasp the hierarchy and data relationships in FHIR resources. In addition, a typical FHIR resource is a complex JSON object with many nested objects and arrays. This makes it difficult to read and understand the data. Also, FHIR comes with a lot of repeating patterns and structures, e.g., `system`, `value`, or `system`, `value`, `display`, or `value`, `unit`, `system`. You know what I mean. For experienced users, these can easily be joined into one line without losing much expressiveness.
 
