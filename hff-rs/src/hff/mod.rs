@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
 use serde_json;
+use std::path::{Path, PathBuf};
 
 pub mod mapping;
 mod reformatting;
@@ -9,14 +9,14 @@ pub struct HuffBuilder {}
 impl HuffBuilder {
     pub fn with_file(&self, mapping_file: &Path) -> HuffBuilderFromMappingFile {
         HuffBuilderFromMappingFile {
-            mapping_file: mapping_file.to_path_buf()
+            mapping_file: mapping_file.to_path_buf(),
         }
     }
     pub fn with_string(&self, mapping_str: &str) -> HuffBuilderFromMappingString {
         HuffBuilderFromMappingString {
-            mapping_str: mapping_str.to_string()
+            mapping_str: mapping_str.to_string(),
         }
-    }    
+    }
     pub fn run(&self, fhir_obj: serde_json::Value) -> Result<String, Box<dyn std::error::Error>> {
         // load custom mappers from file
         let mapping = mapping::load_default_mapping()?;
@@ -27,7 +27,7 @@ impl HuffBuilder {
 
 #[allow(dead_code)]
 pub struct HuffBuilderFromMappingFile {
-    mapping_file: PathBuf
+    mapping_file: PathBuf,
 }
 #[allow(dead_code)]
 impl HuffBuilderFromMappingFile {
@@ -41,7 +41,7 @@ impl HuffBuilderFromMappingFile {
 
 #[allow(dead_code)]
 pub struct HuffBuilderFromMappingString {
-    mapping_str: String
+    mapping_str: String,
 }
 #[allow(dead_code)]
 impl HuffBuilderFromMappingString {
@@ -54,9 +54,8 @@ impl HuffBuilderFromMappingString {
 }
 
 pub fn builder() -> HuffBuilder {
-    HuffBuilder{}
+    HuffBuilder {}
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -110,7 +109,6 @@ mod tests {
 
     #[test]
     fn test_contains_objects_or_arrays_1() {
-
         let json_string = r#"{
             "use": "usual",
             "type": {
@@ -128,8 +126,7 @@ mod tests {
             Ok(response) => {
                 if let Some(_obj) = response.as_object() {
                     assert!(contains_objects_or_arrays(_obj));
-                }
-                else {
+                } else {
                     assert!(false);
                 }
             }
@@ -142,7 +139,6 @@ mod tests {
 
     #[test]
     fn test_contains_objects_or_arrays_2() {
-
         let json_string = r#"{
             "use": "usual",
             "coding": [
@@ -158,8 +154,7 @@ mod tests {
             Ok(response) => {
                 if let Some(_obj) = response.as_object() {
                     assert!(contains_objects_or_arrays(_obj));
-                }
-                else {
+                } else {
                     assert!(false);
                 }
             }
@@ -172,7 +167,6 @@ mod tests {
 
     #[test]
     fn test_contains_objects_or_arrays_3() {
-
         let json_string = r#"{
             "use": "usual",            
             "system": "urn:oid:"
@@ -182,8 +176,7 @@ mod tests {
             Ok(response) => {
                 if let Some(_obj) = response.as_object() {
                     assert!(!contains_objects_or_arrays(_obj));
-                }
-                else {
+                } else {
                     assert!(false);
                 }
             }
@@ -196,7 +189,6 @@ mod tests {
 
     #[test]
     fn test_joined_array_1() {
-
         let json_string = r#"{
             "given": ["Anna-Maria", "Magdalena", "Luisa"]
         }"#;
@@ -204,9 +196,11 @@ mod tests {
         match serde_json::from_str::<serde_json::Value>(json_string) {
             Ok(response) => {
                 if let Some(_obj) = response.as_object() {
-                    assert_eq!(joined_arr(_obj, "given"), Some(json!("Anna-Maria Magdalena Luisa")));
-                }
-                else {
+                    assert_eq!(
+                        joined_arr(_obj, "given"),
+                        Some(json!("Anna-Maria Magdalena Luisa"))
+                    );
+                } else {
                     assert!(false);
                 }
             }
@@ -219,7 +213,6 @@ mod tests {
 
     #[test]
     fn test_joined_array_2() {
-
         let json_string = r#"{
             "foo": ["Anna-Maria", "Magdalena", "Luisa"]
         }"#;
@@ -228,8 +221,7 @@ mod tests {
             Ok(response) => {
                 if let Some(_obj) = response.as_object() {
                     assert_eq!(joined_arr(_obj, "given"), None);
-                }
-                else {
+                } else {
                     assert!(false);
                 }
             }
@@ -242,7 +234,6 @@ mod tests {
 
     #[test]
     fn test_joined_array_3() {
-
         let json_string = r#"{
             "given": [
                 {"hello": "Anna-Maria"},
@@ -255,8 +246,7 @@ mod tests {
             Ok(response) => {
                 if let Some(_obj) = response.as_object() {
                     assert_eq!(joined_arr(_obj, "given"), Some(json!("")));
-                }
-                else {
+                } else {
                     assert!(false);
                 }
             }

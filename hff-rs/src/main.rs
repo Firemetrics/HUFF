@@ -1,7 +1,7 @@
+use clap::Parser;
+use serde_json;
 use std::io::{self, BufRead};
 use std::path::Path;
-use serde_json;
-use clap::Parser;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -12,7 +12,6 @@ struct Args {
 }
 
 fn main() {
-    
     let args = Args::parse();
 
     let stdin = io::stdin();
@@ -31,17 +30,20 @@ fn main() {
     }
 
     match serde_json::from_str(&buffer) {
-        Ok(response) => {
-
-            match args.mapping {
-                Some(mapping) => {
-                    println!("{}", hff_rs::builder().with_file(&Path::new(&mapping)).run(response).unwrap());
-                }
-                None => {
-                    println!("{}", hff_rs::builder().run(response).unwrap());
-                }
-            }   
-        }
+        Ok(response) => match args.mapping {
+            Some(mapping) => {
+                println!(
+                    "{}",
+                    hff_rs::builder()
+                        .with_file(&Path::new(&mapping))
+                        .run(response)
+                        .unwrap()
+                );
+            }
+            None => {
+                println!("{}", hff_rs::builder().run(response).unwrap());
+            }
+        },
         Err(e) => {
             eprintln!("Error parsing JSON: {}", e);
         }
