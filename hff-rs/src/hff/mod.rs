@@ -17,7 +17,7 @@ impl HuffBuilder {
             mapping_str: mapping_str.to_string(),
         }
     }
-    pub fn run(&self, fhir_obj: serde_json::Value) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn run(&self, fhir_obj: &serde_json::Value) -> Result<String, Box<dyn std::error::Error>> {
         // load custom mappers from file
         let mapping = mapping::load_default_mapping()?;
         let _formatters = mapping::process_mapping(&mapping)?;
@@ -31,7 +31,7 @@ pub struct HuffBuilderFromMappingFile {
 }
 #[allow(dead_code)]
 impl HuffBuilderFromMappingFile {
-    pub fn run(&self, fhir_obj: serde_json::Value) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn run(&self, fhir_obj: &serde_json::Value) -> Result<String, Box<dyn std::error::Error>> {
         // load custom mappers from file
         let mapping = mapping::load_mapping_from_file(self.mapping_file.as_path())?;
         let _formatters = mapping::process_mapping(&mapping)?;
@@ -45,7 +45,7 @@ pub struct HuffBuilderFromMappingString {
 }
 #[allow(dead_code)]
 impl HuffBuilderFromMappingString {
-    pub fn run(&self, fhir_obj: serde_json::Value) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn run(&self, fhir_obj: &serde_json::Value) -> Result<String, Box<dyn std::error::Error>> {
         // load custom mappers from file
         let mapping = mapping::load_mapping_from_str(self.mapping_str.as_str())?;
         let _formatters = mapping::process_mapping(&mapping)?;

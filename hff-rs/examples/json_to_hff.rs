@@ -19,6 +19,6 @@ fn main() {
         }
     });
 
-    let hff = hff_rs::builder().run(fhir_resource).unwrap();
+    let hff = hff_rs::builder().run(&fhir_resource).unwrap();
     println!("{hff}");
 }
