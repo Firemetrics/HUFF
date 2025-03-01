@@ -2,7 +2,7 @@ use serde_json;
 use serde_json::json;
 use wasm_bindgen::prelude::*;
 
-mod hff;
+use super::hff;
 
 /** 
  * To be called from JavaScript. Input should be a JSON-FHIR string.

@@ -3,8 +3,6 @@ use std::path::Path;
 use serde_json;
 use clap::Parser;
 
-mod hff;
-
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -37,10 +35,10 @@ fn main() {
 
             match args.mapping {
                 Some(mapping) => {
-                    println!("{}", hff::builder().with_file(&Path::new(&mapping)).run(response).unwrap());
+                    println!("{}", hff_rs::builder().with_file(&Path::new(&mapping)).run(response).unwrap());
                 }
                 None => {
-                    println!("{}", hff::builder().run(response).unwrap());
+                    println!("{}", hff_rs::builder().run(response).unwrap());
                 }
             }   
         }
