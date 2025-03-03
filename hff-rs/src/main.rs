@@ -29,7 +29,7 @@ fn main() {
         }
     }
 
-    match serde_json::from_str(&buffer) {
+    match &serde_json::from_str(&buffer) {
         Ok(response) => match args.mapping {
             Some(mapping) => {
                 println!(
