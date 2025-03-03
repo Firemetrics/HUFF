@@ -1,0 +1,35 @@
+[package]
+name = "hff"
+version = "0.1.2"
+edition = "2024"
+description = "Human-friendly FHIR"
+repository = "https://github.com/Firemetrics/HUFF"
+categories = ["development-tools", "value-formatting", "encoding", "wasm"]
+keywords = ["firemetrics", "fhir", "healthcare"]
+authors = ["Felix Nensa"]
+
+[features]
+default = []
+cli = ["dep:clap"]
+wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen"]
+
+[lib]
+name = "hff_rs"
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "hff"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[dependencies]
+jsonpath_lib = "0.3.0"
+regex = "1.10.3"
+serde = { version = "1.0.195", features = ["derive"] }
+serde_json = "1.0.80"
+serde_yaml = "0.9.31"
+
+serde-wasm-bindgen = { version = "0.6.5", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+clap = { version = "4.5.2", features = ["derive"], optional = true }

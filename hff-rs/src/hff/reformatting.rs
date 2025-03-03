@@ -6,11 +6,11 @@ use std::collections::HashMap;
 use crate::hff::mapping;
 
 pub fn json_to_huff(
-    fhir_obj: serde_json::Value,
+    fhir_obj: &serde_json::Value,
     formatters: &HashMap<String, String>,
 ) -> Result<String, Box<dyn std::error::Error>> {
     // reformat FHIR object
-    let reformatted_obj = traverse_fhir(&fhir_obj, None, &formatters)?;
+    let reformatted_obj = traverse_fhir(fhir_obj, None, &formatters)?;
     Ok(json_to_yaml(&reformatted_obj)?)
 }
 
