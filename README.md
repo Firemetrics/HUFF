@@ -1,4 +1,4 @@
-![HUFF](./chrome-extension/icons/64.png)
+![Banner](./screenshots/HUFF-banner-new.png)
 
 # HUFF / Human-friendly FHIR (no pun intended)
 
